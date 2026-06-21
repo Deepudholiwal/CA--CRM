@@ -27,7 +27,7 @@ export default function RootLayout({
           }
         `}</style>
       </head>
-      <body className="antialiased overflow-hidden">
+      <body className="antialiased">
         <ThemeProvider>
           <DatabaseProvider>
             <Shell>{children}</Shell>
