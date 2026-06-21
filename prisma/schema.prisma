@@ -1,0 +1,515 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 1. SaaS Multi-Tenancy & Subscriptions
+model Tenant {
+  id           String        @id @default(uuid())
+  name         String        // CA Firm Name
+  slug         String        @unique
+  logoUrl      String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  subscription Subscription?
+  branches     Branch[]
+  clients      Client[]
+  employees    Employee[]
+  users        User[]
+  leads        Lead[]
+  workflows    WorkflowRule[]
+}
+
+enum PlanTier {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+model Subscription {
+  id           String    @id @default(uuid())
+  tenantId     String    @unique
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan         PlanTier  @default(STARTER)
+  status       String    // ACTIVE, PAST_DUE, CANCELLED
+  price        Float
+  startDate    DateTime  @default(now())
+  endDate      DateTime
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+// 2. Multi-Branch Operations
+model Branch {
+  id         String   @id @default(uuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name       String   // e.g., Delhi NCR, Mumbai South
+  code       String   // e.g., DEL-01
+  address    String
+  city       String
+  state      String
+  gstin      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  users      User[]
+  employees  Employee[]
+  clients    Client[]
+  invoices   Invoice[]
+  leads      Lead[]
+}
+
+// 3. User & Role Management (RBAC)
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique // e.g. SUPER_ADMIN, CA_PARTNER, MANAGER, ACCOUNTANT, TAX_CONSULTANT, DATA_ENTRY, CLIENT
+  permissions String[] // Array of permission keys e.g., ["client:create", "billing:view", "ai:analyze"]
+  users       User[]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  tenantId     String?
+  tenant       Tenant?  @relation(fields: [tenantId], references: [id])
+  branchId     String?
+  branch       Branch?  @relation(fields: [branchId], references: [id])
+  roleId       String
+  role         Role     @relation(fields: [roleId], references: [id])
+  name         String
+  email        String   @unique
+  passwordHash String
+  refreshToken String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  clientProfile Client?
+  employeeProfile Employee?
+}
+
+// 4. Client CRM & Contacts
+enum BusinessType {
+  PROPRIETORSHIP
+  PARTNERSHIP
+  LLP
+  PRIVATE_LIMITED
+  PUBLIC_LIMITED
+  INDIVIDUAL
+  HUF
+  TRUST
+}
+
+enum ClientCategory {
+  RETAIL
+  GOLD
+  PLATINUM
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+  ONBOARDING
+}
+
+model Client {
+  id            String         @id @default(uuid())
+  tenantId      String
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchId      String
+  branch        Branch         @relation(fields: [branchId], references: [id])
+  userId        String?        @unique // Link to portal login if active
+  user          User?          @relation(fields: [userId], references: [id])
+  
+  clientId      String         @unique // Formatted ID e.g., CA-CLI-1023
+  name          String
+  mobile        String
+  email         String
+  pan           String?
+  aadhaar       String?
+  gstin         String?
+  tan           String?
+  businessType  BusinessType   @default(INDIVIDUAL)
+  category      ClientCategory @default(RETAIL)
+  status        ClientStatus   @default(ONBOARDING)
+  
+  address       String?
+  city          String?
+  state         String?
+  contactPerson String?
+  notes         String?        @db.Text
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  contacts      ClientContact[]
+  gstFilings    GstFiling[]
+  itrFilings    ItrFiling[]
+  tdsFilings    TdsFiling[]
+  rocFilings    RocFiling[]
+  tasks         Task[]
+  documents     Document[]
+  invoices      Invoice[]
+  payments      Payment[]
+  notices       Notice[]
+  activityLogs  ActivityLog[]
+  whatsappLogs  WhatsAppLog[]
+  emailLogs     EmailLog[]
+}
+
+model ClientContact {
+  id        String   @id @default(uuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name      String
+  role      String   // e.g., Director, Accountant, Partner
+  email     String?
+  mobile    String
+  createdAt DateTime @default(now())
+}
+
+// 5. Compliance Tracking Modules
+enum FilingStatus {
+  PENDING
+  IN_PROGRESS
+  FILED
+  OVERDUE
+}
+
+model GstFiling {
+  id         String       @id @default(uuid())
+  clientId   String
+  client     Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  returnType String       // GSTR1, GSTR3B, GSTR9, GSTR9C
+  period     String       // e.g. "May 2026", "FY 2025-26"
+  dueDate    DateTime
+  filedDate  DateTime?
+  status     FilingStatus @default(PENDING)
+  arn        String?      // Application Reference Number
+  taxPaid    Float?
+  notes      String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+}
+
+model ItrFiling {
+  id             String       @id @default(uuid())
+  clientId       String
+  client     Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  assessmentYear String       // e.g., "AY 2026-27"
+  itrType        String       // ITR1, ITR2, ITR3, ITR4, ITR5, ITR6, ITR7
+  dueDate        DateTime
+  filedDate      DateTime?
+  status     FilingStatus @default(PENDING)
+  acknowledgementNo String?
+  taxPayable     Float?
+  refundClaimed  Float?
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model TdsFiling {
+  id         String       @id @default(uuid())
+  clientId   String
+  client     Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  formType   String       // Form 24Q, 26Q, 27Q, 27EQ
+  quarter    String       // Q1, Q2, Q3, Q4
+  period     String       // e.g., "FY 2025-26"
+  dueDate    DateTime
+  filedDate  DateTime?
+  status     FilingStatus @default(PENDING)
+  receiptNo  String?
+  challanAmt Float?
+  notes      String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+}
+
+model RocFiling {
+  id         String       @id @default(uuid())
+  clientId   String
+  client     Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  formName   String       // AOC-4, MGT-7, ADT-1, DIR-3 KYC
+  financialYear String     // e.g., "FY 2025-26"
+  dueDate    DateTime
+  filedDate  DateTime?
+  status     FilingStatus @default(PENDING)
+  srn        String?      // Service Request Number
+  governmentFee Float?
+  notes      String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+}
+
+// 6. Project & Task Management
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  REVIEW
+  COMPLETED
+}
+
+model Task {
+  id          String       @id @default(uuid())
+  clientId    String?
+  client      Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  title       String
+  description String?      @db.Text
+  priority    TaskPriority @default(MEDIUM)
+  status      TaskStatus   @default(PENDING)
+  dueDate     DateTime
+  startDate   DateTime?
+  assignedToId String?
+  assignedTo  Employee?    @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdById  String?
+  createdBy   Employee?    @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  comments    TaskComment[]
+  documents   Document[]
+}
+
+model TaskComment {
+  id         String   @id @default(uuid())
+  taskId     String
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  comment    String   @db.Text
+  createdAt  DateTime @default(now())
+}
+
+// 7. Employee & Operations Management
+model Employee {
+  id           String     @id @default(uuid())
+  tenantId     String
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchId     String
+  branch       Branch     @relation(fields: [branchId], references: [id])
+  userId       String     @unique
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  employeeId   String     @unique // e.g. CA-EMP-104
+  designation  String     // Partner, Manager, Accountant, Tax Consultant, DEO
+  mobile       String
+  salary       Float?
+  joiningDate  DateTime   @default(now())
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  assignedTasks Task[]    @relation("TaskAssignee")
+  createdTasks  Task[]    @relation("TaskCreator")
+  comments      TaskComment[]
+  attendance    Attendance[]
+  leaves        Leave[]
+}
+
+model Attendance {
+  id         String    @id @default(uuid())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime  @db.Date
+  checkIn    DateTime?
+  checkOut   DateTime?
+  status     String    // PRESENT, ABSENT, HALF_DAY, ON_LEAVE
+}
+
+model Leave {
+  id         String   @id @default(uuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  startDate  DateTime
+  endDate    DateTime
+  type       String   // CASUAL, SICK, MATERNITY, LOSS_OF_PAY
+  status     String   // PENDING, APPROVED, REJECTED
+  reason     String?
+  createdAt  DateTime @default(now())
+}
+
+// 8. Document & Folder Vault (OCR + E-Sign)
+model Folder {
+  id        String     @id @default(uuid())
+  name      String     // PAN, Aadhaar, GST Certificates, ITR Acknowledgements, Bank Statements
+  parentId  String?
+  parent    Folder?    @relation("FolderHierarchy", fields: [parentId], references: [id])
+  subfolders Folder[]  @relation("FolderHierarchy")
+  documents Document[]
+  createdAt DateTime   @default(now())
+}
+
+model Document {
+  id             String    @id @default(uuid())
+  clientId       String
+  client         Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  folderId       String?
+  folder         Folder?   @relation(fields: [folderId], references: [id])
+  taskId         String?
+  task           Task?     @relation(fields: [taskId], references: [id])
+  
+  name           String    // Filename
+  fileUrl        String    // S3 URL
+  fileSize       Int
+  fileType       String    // pdf, png, xlsx
+  category       String    // PAN, GST_CERT, BANK_STMT, etc.
+  version        Int       @default(1)
+  isApproved     Boolean   @default(false)
+  esignStatus    String    @default("PENDING") // PENDING, SENT, COMPLETED, REJECTED
+  ocrData        Json?     // Stored JSON of extracted OCR fields
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+// 9. Billing, Invoicing & Receipts
+enum InvoiceStatus {
+  DRAFT
+  UNPAID
+  PAID
+  CANCELLED
+  PARTIALLY_PAID
+}
+
+model Invoice {
+  id          String        @id @default(uuid())
+  branchId    String
+  branch      Branch        @relation(fields: [branchId], references: [id])
+  clientId    String
+  client      Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  
+  invoiceNo   String        @unique // e.g., INV/2026/0045
+  dueDate     DateTime
+  subTotal    Float
+  cgst        Float         @default(0.0)
+  sgst        Float         @default(0.0)
+  igst        Float         @default(0.0)
+  total       Float
+  status      InvoiceStatus @default(UNPAID)
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  payments    Payment[]
+}
+
+model Payment {
+  id          String   @id @default(uuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  invoiceId   String?
+  invoice     Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  
+  receiptNo   String   @unique // e.g. REC-5023
+  amount      Float
+  paymentMode String   // UPI, BANK_TRANSFER, CASH, CHEQUE
+  referenceNo String?  // Transaction ID
+  paymentDate DateTime @default(now())
+  notes       String?
+}
+
+// 10. Notices & Audit Trail
+model Notice {
+  id             String   @id @default(uuid())
+  clientId       String
+  client         Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  issuingAuthority String // INCOME_TAX, GST, ROC
+  noticeSection  String   // e.g. Sec 143(1), GST ASMT-10
+  noticeNumber   String
+  issueDate      DateTime
+  dueDate        DateTime
+  status         String   // OPEN, RESPONDED, CLOSED, ESCALATED
+  severity       String   // HIGH, MEDIUM, LOW
+  escalatedTo    String?  // Partner name
+  extractedNotes String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// 11. Lead & Inquiry Management
+model Lead {
+  id             String         @id @default(uuid())
+  tenantId       String
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchId       String
+  branch         Branch         @relation(fields: [branchId], references: [id])
+  
+  name           String
+  companyName    String?
+  mobile         String
+  email          String
+  source         String         // e.g., Website, Referral, Cold Call
+  stage          String         @default("NEW") // NEW, PROPOSAL_SENT, NEGOTIATION, WON, LOST
+  estimatedValue Float?
+  notes          String?        @db.Text
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+// 12. Workflow Automation Engine
+model WorkflowRule {
+  id          String             @id @default(uuid())
+  tenantId    String
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  triggerName String             // e.g. CLIENT_CREATED, NOTICE_RECEIVED, INVOICE_OVERDUE
+  conditions  Json               // e.g. { category: "GST" }
+  isActive    Boolean            @default(true)
+  actions     AutomationAction[]
+}
+
+model AutomationAction {
+  id         String       @id @default(uuid())
+  ruleId     String
+  rule       WorkflowRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  type       String       // CREATE_TASK, SEND_WHATSAPP, SEND_EMAIL
+  template   String       // Template or configuration object string/JSON
+}
+
+// 13. Knowledge Base
+model Article {
+  id        String   @id @default(uuid())
+  title     String
+  category  String   // GST, INCOME_TAX, ROC, COMPANY_ACT, INTERNAL_SOP
+  content   String   @db.Text
+  tags      String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 14. Activity & Communication Logs
+model ActivityLog {
+  id         String   @id @default(uuid())
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  action     String   // e.g. "GST Returns Filed", "Notice Added"
+  operator   String   // e.g. "Tax Consultant Deepak Yadav"
+  details    String?
+  timestamp  DateTime @default(now())
+}
+
+model WhatsAppLog {
+  id        String   @id @default(uuid())
+  clientId  String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  message   String
+  status    String   // SENT, DELIVERED, READ, FAILED
+  direction String   // OUTGOING, INCOMING
+  timestamp DateTime @default(now())
+}
+
+model EmailLog {
+  id        String   @id @default(uuid())
+  clientId  String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  subject   String
+  status    String   // SENT, BOUNCED, OPENED
+  timestamp DateTime @default(now())
+}
