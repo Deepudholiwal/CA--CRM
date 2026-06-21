@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useDatabase } from "../../context/DatabaseContext";
 import { Building, User, Mail, Lock, CheckCircle, ArrowLeft } from "lucide-react";
 
-export default function Register() {
+function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setTenant } = useDatabase();
@@ -179,5 +179,17 @@ export default function Register() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function Register() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-[#090D1A] text-white text-xs font-semibold">
+        Loading workspace setup...
+      </div>
+    }>
+      <RegisterForm />
+    </Suspense>
   );
 }
