@@ -13,11 +13,12 @@ import {
   Shield,
   LogOut,
   AlertTriangle,
-  FolderSync
+  FolderSync,
+  Menu
 } from "lucide-react";
 import Link from "next/link";
 
-export default function Header() {
+export default function Header({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; setMobileOpen?: (o: boolean) => void }) {
   const { theme, toggleTheme } = useTheme();
   const {
     activeRole,
@@ -81,9 +82,18 @@ export default function Header() {
   };
 
   return (
-    <header className="h-16 border-b border-border/60 bg-card text-card-foreground flex items-center justify-between px-6 sticky top-0 z-10">
+    <header className="h-16 border-b border-border/60 bg-card text-card-foreground flex items-center justify-between px-4 md:px-6 sticky top-0 z-10">
+      {/* Mobile Burger Menu Button */}
+      <button
+        onClick={() => setMobileOpen?.(!mobileOpen)}
+        className="p-2 -ml-2 mr-1 rounded-lg text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors cursor-pointer md:hidden"
+        title="Open Navigation"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
+
       {/* Search Bar */}
-      <div className="relative w-80 max-w-lg">
+      <div className="relative w-80 max-w-lg hidden md:block">
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           <Search className="h-4.5 w-4.5 text-muted-foreground" />
         </div>
@@ -131,12 +141,12 @@ export default function Header() {
       {/* Action Controls */}
       <div className="flex items-center space-x-4">
         {/* Branch Switcher */}
-        <div className="flex items-center space-x-1.5 border border-border/60 rounded-lg px-2.5 py-1 bg-muted/20">
-          <Building className="w-4 h-4 text-muted-foreground" />
+        <div className="flex items-center space-x-1 border border-border/60 rounded-lg px-1.5 md:px-2.5 py-1 bg-muted/20">
+          <Building className="w-3.5 h-3.5 text-muted-foreground" />
           <select
             value={activeBranch}
             onChange={(e) => setActiveBranch(e.target.value)}
-            className="text-xs font-medium bg-transparent border-none text-foreground focus:outline-none cursor-pointer"
+            className="text-[10px] md:text-xs font-medium bg-transparent border-none text-foreground focus:outline-none cursor-pointer max-w-[65px] sm:max-w-[120px] md:max-w-none truncate"
           >
             <option value="all">All Branches</option>
             {branches.map((b) => (
@@ -148,12 +158,12 @@ export default function Header() {
         </div>
 
         {/* Dynamic Role Switcher (RBAC Simulator) */}
-        <div className="flex items-center space-x-1.5 border border-primary/20 rounded-lg px-2.5 py-1 bg-primary/5">
-          <Shield className="w-4 h-4 text-primary" />
+        <div className="flex items-center space-x-1 border border-primary/20 rounded-lg px-1.5 md:px-2.5 py-1 bg-primary/5">
+          <Shield className="w-3.5 h-3.5 text-primary" />
           <select
             value={activeRole}
             onChange={(e) => setActiveRole(e.target.value)}
-            className="text-xs font-semibold bg-transparent border-none text-primary focus:outline-none cursor-pointer"
+            className="text-[10px] md:text-xs font-semibold bg-transparent border-none text-primary focus:outline-none cursor-pointer max-w-[70px] sm:max-w-[120px] md:max-w-none truncate"
           >
             {ROLE_PERMISSIONS.map((rp) => (
               <option key={rp.role} value={rp.role} className="text-foreground">

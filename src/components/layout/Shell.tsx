@@ -8,6 +8,7 @@ import { useRouter, usePathname } from "next/navigation";
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const { activeRole } = useDatabase();
   const router = useRouter();
   const pathname = usePathname();
@@ -34,13 +35,26 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background text-foreground font-sans">
+    <div className="flex h-screen overflow-hidden bg-background text-foreground font-sans relative">
       {/* Sidebar Navigation */}
-      <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
+      <Sidebar 
+        collapsed={collapsed} 
+        setCollapsed={setCollapsed} 
+        mobileOpen={mobileOpen} 
+        setMobileOpen={setMobileOpen} 
+      />
+
+      {/* Mobile Backdrop Overlay */}
+      {mobileOpen && (
+        <div 
+          onClick={() => setMobileOpen(false)}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 md:hidden"
+        ></div>
+      )}
 
       {/* Main Workspace Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        <Header />
+        <Header mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
         
         <main className="flex-1 overflow-y-auto bg-background p-6">
           <div className="mx-auto max-w-7xl space-y-6">

@@ -29,9 +29,11 @@ import {
 interface SidebarProps {
   collapsed: boolean;
   setCollapsed: (c: boolean) => void;
+  mobileOpen?: boolean;
+  setMobileOpen?: (o: boolean) => void;
 }
 
-export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
+export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: SidebarProps) {
   const pathname = usePathname();
   const { tenant } = useDatabase();
 
@@ -58,8 +60,10 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
 
   return (
     <div
-      className={`h-screen bg-card text-card-foreground border-r border-border/60 flex flex-col transition-all duration-300 relative z-20 ${
+      className={`h-screen bg-card text-card-foreground border-r border-border/60 flex flex-col transition-all duration-300 fixed md:relative z-40 md:z-20 top-0 bottom-0 left-0 ${
         collapsed ? "w-20" : "w-64"
+      } ${
+        mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
       }`}
     >
       {/* Brand Header */}
@@ -98,6 +102,7 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
             <Link
               key={item.name}
               href={item.href}
+              onClick={() => setMobileOpen?.(false)}
               className={`flex items-center p-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                 isActive ? activeClass : inactiveClass
               } ${collapsed ? "justify-center" : ""}`}
@@ -114,6 +119,7 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
       <div className="p-3 border-t border-border/60 bg-muted/20">
         <Link
           href="/client-portal"
+          onClick={() => setMobileOpen?.(false)}
           className={`flex items-center p-2.5 rounded-lg text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors border border-emerald-500/20 ${
             collapsed ? "justify-center" : ""
           }`}

@@ -235,7 +235,7 @@ export default function LandingPage() {
           </div>
 
           {/* Sandbox Main Area */}
-          <div className="p-6 h-[400px] flex items-stretch">
+          <div className="p-6 h-auto md:h-[400px] flex items-stretch">
             {activeSandboxTab === "notice" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full items-stretch">
                 {/* Left: Input Notice */}
